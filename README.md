@@ -1,2 +1,2 @@
 # codex.docker
-codex docker for cli
+codex deploy in docker
