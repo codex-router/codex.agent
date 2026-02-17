@@ -150,20 +150,43 @@ elif [ "$1" = "opencode" ] && [ ! -t 0 ]; then
     done
 
     OPENCODE_LAST_MESSAGE_FILE="$(mktemp)"
+    OPENCODE_STDERR_FILE="$(mktemp)"
     set +e
     if [ -n "$LITELLM_MODEL" ] && [ "$has_model_flag" = "false" ]; then
-        opencode run --model "litellm/${LITELLM_MODEL}" --print-logs false --output-file "$OPENCODE_LAST_MESSAGE_FILE" "$@" >/dev/null
+        opencode run --model "litellm/${LITELLM_MODEL}" --print-logs false --output-file "$OPENCODE_LAST_MESSAGE_FILE" "$@" >/dev/null 2>"$OPENCODE_STDERR_FILE"
         OPENCODE_EXIT_CODE=$?
     else
-        opencode run --print-logs false --output-file "$OPENCODE_LAST_MESSAGE_FILE" "$@" >/dev/null
+        opencode run --print-logs false --output-file "$OPENCODE_LAST_MESSAGE_FILE" "$@" >/dev/null 2>"$OPENCODE_STDERR_FILE"
         OPENCODE_EXIT_CODE=$?
     fi
     set -e
 
-    if [ -f "$OPENCODE_LAST_MESSAGE_FILE" ]; then
+    if [ -s "$OPENCODE_LAST_MESSAGE_FILE" ]; then
         cat "$OPENCODE_LAST_MESSAGE_FILE"
-        rm -f "$OPENCODE_LAST_MESSAGE_FILE"
+    else
+        # Compatibility fallback for opencode versions that don't support
+        # --output-file / --print-logs.
+        OPENCODE_COMPAT_OUTPUT_FILE="$(mktemp)"
+        set +e
+        if [ -n "$LITELLM_MODEL" ] && [ "$has_model_flag" = "false" ]; then
+            opencode run --model "litellm/${LITELLM_MODEL}" "$@" >"$OPENCODE_COMPAT_OUTPUT_FILE" 2>"$OPENCODE_STDERR_FILE"
+            OPENCODE_EXIT_CODE=$?
+        else
+            opencode run "$@" >"$OPENCODE_COMPAT_OUTPUT_FILE" 2>"$OPENCODE_STDERR_FILE"
+            OPENCODE_EXIT_CODE=$?
+        fi
+        set -e
+
+        if [ -s "$OPENCODE_COMPAT_OUTPUT_FILE" ]; then
+            cat "$OPENCODE_COMPAT_OUTPUT_FILE"
+        elif [ -s "$OPENCODE_STDERR_FILE" ]; then
+            cat "$OPENCODE_STDERR_FILE" >&2
+        fi
+
+        rm -f "$OPENCODE_COMPAT_OUTPUT_FILE"
     fi
+
+    rm -f "$OPENCODE_LAST_MESSAGE_FILE" "$OPENCODE_STDERR_FILE"
 
     exit "$OPENCODE_EXIT_CODE"
 else
