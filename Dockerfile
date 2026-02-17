@@ -44,6 +44,7 @@ ENV CODEX_PATH=${CODEX_PATH}
 ENV GEMINI_PATH=${GEMINI_PATH}
 ENV OPENCODE_PATH=${OPENCODE_PATH}
 ENV QWEN_PATH=${QWEN_PATH}
+ENV OPENCODE_CONFIG=/root/.config/opencode/opencode.json
 
 # Add entrypoint script
 COPY docker-entrypoint.sh /usr/local/bin/

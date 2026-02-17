@@ -51,6 +51,50 @@ EOF
             [ -n "$BASE_URL" ] && export OPENAI_BASE_URL="$BASE_URL"
             [ -n "$API_KEY" ] && export OPENAI_API_KEY="$API_KEY"
             [ -n "$MODEL" ] && export OPENAI_MODEL="$MODEL"
+
+                        # Configure OpenCode LiteLLM provider (https://docs.litellm.com.cn/docs/tutorials/opencode_integration)
+                        # Model keys should match LiteLLM model_name values.
+                        if [ -n "$BASE_URL" ]; then
+                                mkdir -p "${HOME}/.config/opencode"
+                                export OPENCODE_CONFIG="${HOME}/.config/opencode/opencode.json"
+
+                                if [ -n "$MODEL" ]; then
+                                        cat >"${OPENCODE_CONFIG}" <<EOF
+{
+    "$schema": "https://opencode.ac.cn/config.json",
+    "provider": {
+        "litellm": {
+            "npm": "@ai-sdk/openai-compatible",
+            "name": "LiteLLM",
+            "options": {
+                "baseURL": "${BASE_URL}"
+            },
+            "models": {
+                "${MODEL}": {
+                    "name": "${MODEL}"
+                }
+            }
+        }
+    }
+}
+EOF
+                                else
+                                        cat >"${OPENCODE_CONFIG}" <<EOF
+{
+    "$schema": "https://opencode.ac.cn/config.json",
+    "provider": {
+        "litellm": {
+            "npm": "@ai-sdk/openai-compatible",
+            "name": "LiteLLM",
+            "options": {
+                "baseURL": "${BASE_URL}"
+            }
+        }
+    }
+}
+EOF
+                                fi
+                        fi
             ;;
         "qwen")
             [ -n "$BASE_URL" ] && export OPENAI_BASE_URL="$BASE_URL"
@@ -77,8 +121,23 @@ if [ "$1" = "codex" ] && [ ! -t 0 ]; then
 elif [ "$1" = "opencode" ] && [ ! -t 0 ]; then
     # When running without a TTY (usually non-interactive mode), 'opencode' attempts to launch a TUI and treat arguments as folders.
     # We switch to 'opencode run' to execute a prompt non-interactively.
-    # We shift the first argument ('opencode') and exec 'opencode run' with the rest of arguments
     shift
+
+    # If a model wasn't explicitly provided, inject one from LITELLM_MODEL as litellm/<model>
+    has_model_flag=false
+    prev_arg=""
+    for arg in "$@"; do
+        if [ "$prev_arg" = "--model" ] || [ "$prev_arg" = "-m" ] || [ "$arg" = "--model" ] || [ "$arg" = "-m" ]; then
+            has_model_flag=true
+            break
+        fi
+        prev_arg="$arg"
+    done
+
+    if [ -n "$LITELLM_MODEL" ] && [ "$has_model_flag" = "false" ]; then
+        exec opencode run --model "litellm/${LITELLM_MODEL}" "$@"
+    fi
+
     exec opencode run "$@"
 else
     exec "$@"
