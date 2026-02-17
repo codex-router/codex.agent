@@ -45,5 +45,10 @@ ENV GEMINI_PATH=${GEMINI_PATH}
 ENV OPENCODE_PATH=${OPENCODE_PATH}
 ENV QWEN_PATH=${QWEN_PATH}
 
+# Add entrypoint script
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 # Default entrypoint
+ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["/bin/bash"]

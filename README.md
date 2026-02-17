@@ -68,3 +68,24 @@ gemini --version
 opencode --version
 qwen --version
 ```
+
+### Configuration via Environment Variables
+
+The image supports automatic configuration of the CLIs using a standard set of environment variables. This is handled by the entrypoint script.
+
+- `CLI_PROVIDER_NAME`: The name of the CLI to configure (`claude`, `codex`, `gemini`, `opencode`, `qwen`).
+- `LITELLM_BASE_URL`: The base URL for the API provider.
+- `LITELLM_API_KEY`: The API key for the provider.
+- `LITELLM_MODEL`: The model name to use.
+
+Example:
+
+```bash
+docker run --rm \
+  -e CLI_PROVIDER_NAME=claude \
+  -e LITELLM_BASE_URL="https://api.anthropic.com" \
+  -e LITELLM_API_KEY="sk-..." \
+  -e LITELLM_MODEL="claude-3-opus-20240229" \
+  craftslab/codex-cli-env:latest \
+  claude "Hello, world!"
+```
