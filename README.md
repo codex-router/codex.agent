@@ -1,8 +1,8 @@
-# codex.docker
+# codex.agent
 
-Docker environment for the Codex Gerrit plugin CLIs. This image bundles all supported AI CLIs into a single container, ready to be used by `codex.serve`.
+Docker environment for the Codex Gerrit plugin agents. This image bundles all supported AI agents into a single container, ready to be used by `codex.serve`.
 
-## Included CLIs
+## Included agents
 
 - **Claude Code** (`claude`): Installed via `@anthropic-ai/claude-code`.
 - **Codex CLI** (`codex`): Installed via `@openai/codex`.
@@ -16,7 +16,7 @@ Docker environment for the Codex Gerrit plugin CLIs. This image bundles all supp
 
 ## Build
 
-Build the image from the `codex.docker` directory:
+Build the image from the `codex.agent` directory:
 
 ```bash
 ./build.sh
@@ -24,17 +24,17 @@ Build the image from the `codex.docker` directory:
 
 ## Test
 
-Run the Docker smoke test from the `codex.docker` directory:
+Run the Docker smoke test from the `codex.agent` directory:
 
 ```bash
 ./test.sh
 ```
 
-The test script builds a temporary image (`codex-cli-env:test`) and verifies:
+The test script builds a temporary image (`codex-agent:test`) and verifies:
 
 - Base image is Ubuntu.
-- All required CLI binaries are available and return `--version`.
-- Per-CLI provider settings are validated with explicit test values for base URL, API key, and model:
+- All required agent binaries are available and return `--version`.
+- Per-agent provider settings are validated with explicit test values for base URL, API key, and model:
 	- `claude`: `ANTHROPIC_BASE_URL`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_MODEL`
   - `codex`: `LITELLM_BASE_URL`, `LITELLM_API_KEY`, and `~/.codex/config.toml` model/provider config
 	- `gemini`: `GOOGLE_GEMINI_BASE_URL`, `GEMINI_API_KEY`, `GEMINI_MODEL`
@@ -47,21 +47,21 @@ The test script builds a temporary image (`codex-cli-env:test`) and verifies:
 This image is designed to work with `codex.serve`.
 
 1.  Build the image as shown above.
-2.  Configure `codex.serve` to use this image by setting the `CODEX_DOCKER_IMAGE` environment variable.
+2.  Configure `codex.serve` to use this image by setting the `CODEX_AGENT_IMAGE` environment variable.
 
 ```bash
-export CODEX_DOCKER_IMAGE=craftslab/codex-cli-env:latest
+export CODEX_AGENT_IMAGE=craftslab/codex-agent:latest
 python codex.serve/codex_serve.py
 ```
 
-`codex.serve` will then spin up this container for every CLI request, passing necessary environment variables (like API keys) and streaming the output back to the plugin.
+`codex.serve` will then spin up this container for every agent request, passing necessary environment variables (like API keys) and streaming the output back to the plugin.
 
 ### Manual Usage
 
 You can also run the container interactively for testing:
 
 ```bash
-docker run -it --rm craftslab/codex-cli-env:latest bash
+docker run -it --rm craftslab/codex-agent:latest bash
 claude --version
 codex --version
 gemini --version
@@ -71,9 +71,9 @@ qwen --version
 
 ### Configuration via Environment Variables
 
-The image supports automatic configuration of the CLIs using a standard set of environment variables. This is handled by the entrypoint script.
+The image supports automatic configuration of the agents using a standard set of environment variables. This is handled by the entrypoint script.
 
-- `CLI_PROVIDER_NAME`: The name of the CLI to configure (`claude`, `codex`, `gemini`, `opencode`, `qwen`).
+- `AGENT_PROVIDER_NAME`: The name of the agent to configure (`claude`, `codex`, `gemini`, `opencode`, `qwen`).
 - `LITELLM_BASE_URL`: The base URL for the API provider.
 - `LITELLM_API_KEY`: The API key for the provider.
 - `LITELLM_MODEL`: The model name to use.
@@ -82,10 +82,10 @@ Example:
 
 ```bash
 docker run --rm \
-  -e CLI_PROVIDER_NAME=claude \
+  -e AGENT_PROVIDER_NAME=claude \
   -e LITELLM_BASE_URL="https://api.anthropic.com" \
   -e LITELLM_API_KEY="sk-..." \
   -e LITELLM_MODEL="claude-3-opus-20240229" \
-  craftslab/codex-cli-env:latest \
+  craftslab/codex-agent:latest \
   claude "Hello, world!"
 ```

@@ -1,15 +1,15 @@
 #!/bin/bash
 set -e
 
-# CLI_PROVIDER_NAME can be: claude, codex, gemini, opencode, qwen
+# AGENT_PROVIDER_NAME can be: claude, codex, gemini, opencode, qwen
 
-if [ -n "$CLI_PROVIDER_NAME" ]; then
+if [ -n "$AGENT_PROVIDER_NAME" ]; then
     # Common variables from environment
     BASE_URL="${LITELLM_BASE_URL:-}"
     API_KEY="${LITELLM_API_KEY:-}"
     MODEL="${LITELLM_MODEL:-}"
 
-    case "$CLI_PROVIDER_NAME" in
+    case "$AGENT_PROVIDER_NAME" in
         "claude")
             [ -n "$BASE_URL" ] && export ANTHROPIC_BASE_URL="$BASE_URL"
             [ -n "$API_KEY" ] && export ANTHROPIC_AUTH_TOKEN="$API_KEY"
@@ -102,7 +102,7 @@ EOF
             [ -n "$MODEL" ] && export OPENAI_MODEL="$MODEL"
             ;;
         *)
-            echo "Warning: Unknown CLI_PROVIDER_NAME: $CLI_PROVIDER_NAME"
+            echo "Warning: Unknown AGENT_PROVIDER_NAME: $AGENT_PROVIDER_NAME"
             ;;
     esac
 fi

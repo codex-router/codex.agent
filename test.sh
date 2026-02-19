@@ -4,7 +4,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
-IMAGE_TAG="codex-cli-env:test"
+IMAGE_TAG="codex-agent:test"
 
 echo "[1/2] Building Docker image: ${IMAGE_TAG}"
 docker build -t "${IMAGE_TAG}" -f Dockerfile .
@@ -23,7 +23,7 @@ run_provider_test() {
 
     # We pass the check logic as a heredoc script to avoid complex escaping
     docker run --rm \
-        -e CLI_PROVIDER_NAME="$provider" \
+        -e AGENT_PROVIDER_NAME="$provider" \
         -e LITELLM_BASE_URL="${TEST_BASE_URL}" \
         -e LITELLM_API_KEY="${TEST_API_KEY}" \
         -e LITELLM_MODEL="${TEST_MODEL}" \
@@ -41,7 +41,7 @@ run_provider_test() {
                 echo \"  OK: \$name is set\"
             }
 
-            echo '  > Verifying CLI binary availability...'
+            echo '  > Verifying agent binary availability...'
             if ! command -v $provider >/dev/null; then
                echo 'Error: binary $provider not found'
                exit 1
