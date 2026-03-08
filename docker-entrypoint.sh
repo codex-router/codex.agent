@@ -1,7 +1,38 @@
 #!/bin/bash
 set -e
 
-# AGENT_PROVIDER_NAME can be: codex, opencode, qwen, kimi
+# AGENT_PROVIDER_NAME can be: codex, openclaw, opencode, qwen, kimi
+
+ensure_openclaw_state() {
+        mkdir -p "${OPENCLAW_STATE_DIR:-${HOME}/.openclaw}" "${OPENCLAW_STATE_DIR:-${HOME}/.openclaw}/workspace"
+
+        local config_path="${OPENCLAW_CONFIG_PATH:-${OPENCLAW_STATE_DIR:-${HOME}/.openclaw}/openclaw.json}"
+    local template_path="${OPENCLAW_CONFIG_TEMPLATE:-/usr/local/share/codex-agent/openclaw.json}"
+        if [ ! -f "$config_path" ]; then
+                mkdir -p "$(dirname "$config_path")"
+        if [ -f "$template_path" ]; then
+            cp "$template_path" "$config_path"
+        else
+            cat >"$config_path" <<EOF
+{
+    "tools": {
+        "profile": "${OPENCLAW_TOOLS_PROFILE:-full}"
+    },
+    "agents": {
+        "defaults": {
+            "workspace": "${OPENCLAW_STATE_DIR:-${HOME}/.openclaw}/workspace"
+        }
+    },
+    "gateway": {
+        "mode": "${OPENCLAW_GATEWAY_MODE:-local}",
+        "port": ${OPENCLAW_GATEWAY_PORT:-18789},
+        "bind": "${OPENCLAW_GATEWAY_BIND:-lan}"
+    }
+}
+EOF
+            fi
+        fi
+}
 
 if [ -n "$AGENT_PROVIDER_NAME" ]; then
     # Common variables from environment
@@ -34,6 +65,9 @@ EOF
             # If the command is just 'codex' and arguments, we might need to handle
             # non-interactive execution if the tool requires a TTY.
             # However, for 'codex' specifically, passing the prompt as an argument usually works.
+            ;;
+        "openclaw")
+            ensure_openclaw_state
             ;;
         "opencode")
             [ -n "$BASE_URL" ] && export OPENAI_BASE_URL="$BASE_URL"
@@ -100,6 +134,18 @@ EOF
             echo "Warning: Unknown AGENT_PROVIDER_NAME: $AGENT_PROVIDER_NAME"
             ;;
     esac
+fi
+
+# When the image uses its default shell command, start the OpenClaw Gateway instead.
+# Per the OpenClaw gateway runbook, foreground startup uses `openclaw gateway --port <port>`.
+if [ "$#" -eq 0 ] || [ "$1" = "/bin/bash" ]; then
+    set -- openclaw gateway --port "${OPENCLAW_GATEWAY_PORT:-18789}"
+fi
+
+# Ensure OpenClaw state exists for explicit gateway launches even when
+# AGENT_PROVIDER_NAME is not set.
+if [ "${1:-}" = "openclaw" ] && [ "${2:-}" = "gateway" ]; then
+    ensure_openclaw_state
 fi
 
 # Execute the passed command
@@ -182,6 +228,49 @@ elif [ "$1" = "opencode" ] && [ ! -t 0 ]; then
     rm -f "$OPENCODE_LAST_MESSAGE_FILE" "$OPENCODE_STDERR_FILE"
 
     exit "$OPENCODE_EXIT_CODE"
+elif [ "$1" = "openclaw" ] && [ ! -t 0 ]; then
+    # In codex.serve Docker mode, the prompt arrives on stdin while the selected model
+    # may be forwarded as top-level flags. OpenClaw expects an explicit subcommand.
+    # For this container, route bare `openclaw` requests to a local embedded agent run.
+    shift
+    ensure_openclaw_state
+
+    sanitized_args=()
+    skip_next=false
+    for arg in "$@"; do
+        if [ "$skip_next" = "true" ]; then
+            skip_next=false
+            continue
+        fi
+
+        case "$arg" in
+            --model|-m)
+                skip_next=true
+                continue
+                ;;
+            --model=*|-m=*)
+                continue
+                ;;
+        esac
+
+        sanitized_args+=("$arg")
+    done
+
+    if [ ${#sanitized_args[@]} -gt 0 ]; then
+        first_arg="${sanitized_args[0]}"
+        case "$first_arg" in
+            agent|agents|gateway|status|health|doctor|setup|onboard|config|configure|logs|sessions|memory|message|channels|skills|plugins|dashboard|security|system|node|browser|acp|reset|uninstall|update|completion|daemon)
+                exec openclaw "${sanitized_args[@]}"
+                ;;
+        esac
+    fi
+
+    OPENCLAW_MESSAGE="$(cat)"
+    if [ -z "${OPENCLAW_MESSAGE//[[:space:]]/}" ]; then
+        exec openclaw "$@"
+    fi
+
+    exec openclaw agent --local --agent "${OPENCLAW_AGENT_ID:-main}" --message "$OPENCLAW_MESSAGE"
 elif [ "$1" = "kimi" ] && [ ! -t 0 ]; then
     # When running without a TTY, prefer Kimi print mode to avoid interactive UI.
     # - If the first arg is a known subcommand (e.g. info/mcp), run as-is.
